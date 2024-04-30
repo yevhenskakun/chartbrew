@@ -17,7 +17,7 @@ const options = {
   pool: {
     max: 5,
     min: 0,
-    acquire: 30000,
+    acquire: 5 * 60 * 1000,
     idle: 10000
   },
   define: {
@@ -26,6 +26,7 @@ const options = {
   },
   dialectOptions: {
     charset: "utf8mb4",
+    connectTimeout: 5 * 60 * 1000,
   },
 };
 
