@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
-  Popover, Link, Spacer, CircularProgress, Chip, PopoverTrigger, PopoverContent,
+  Popover, Link, Spacer, CircularProgress, PopoverTrigger, PopoverContent,
 } from "@nextui-org/react";
 import moment from "moment";
-import { format } from "date-fns";
-import { enGB } from "date-fns/locale";
 import { Helmet } from "react-helmet";
 import useDarkMode from "@fisch0920/use-dark-mode";
 import { useSearchParams } from "react-router-dom";
-import { LuListFilter, LuXCircle } from "react-icons/lu";
+import { LuListFilter } from "react-icons/lu";
 import { useParams } from "react-router";
 import { useDispatch } from "react-redux";
 import { useLocalStorage } from "react-use";
@@ -29,6 +27,7 @@ import Row from "../components/Row";
 import Text from "../components/Text";
 import Callout from "../components/Callout";
 import KpiMode from "./Chart/components/KpiMode";
+import useChartSize from "../modules/useChartSize";
 
 const pageHeight = window.innerHeight;
 
@@ -48,6 +47,8 @@ function EmbeddedChart() {
   const dispatch = useDispatch();
   const darkMode = useDarkMode(false);
   const [searchParams] = useSearchParams();
+  const filterRef = useRef(null);
+  const chartSize = useChartSize(chart.layout);
   
   useInterval(() => {
     setDataLoading(true);
@@ -86,6 +87,61 @@ function EmbeddedChart() {
     }
   }, []);
 
+  useEffect(() => {
+    // check the search params and pass them to
+    if (chart.id && !filterRef.current) {
+      filterRef.current = true;
+      _checkSearchParamsForFilters();
+    }
+  }, [chart]);
+
+  const _checkSearchParamsForFilters = () => {
+    // check if there are any filters in the search params
+    // if so, add them to the conditions
+    const params = [];
+    searchParams.entries().forEach((entry) => {
+      const [key, value] = entry;
+      params.push({ variable: key, value });
+    });
+
+    if (params.length === 0) return;
+
+    let identifiedConditions = [];
+    chart.ChartDatasetConfigs.forEach((cdc) => {
+      if (Array.isArray(cdc.Dataset?.conditions)) {
+        identifiedConditions = [...identifiedConditions, ...cdc.Dataset.conditions];
+      }
+    });
+
+    // now check if any filters have the same variable name
+    let newConditions = [];
+    newConditions = identifiedConditions.map((c) => {
+      const newCondition = c;
+      const param = params.find((p) => p.variable === c.variable);
+      if (param) {
+        newCondition.value = param.value;
+      }
+      return newCondition;
+    });
+
+    // remove conditions that don't have a value
+    newConditions = newConditions.filter((c) => c.value);
+
+    if (newConditions.length === 0) return;
+
+    dispatch(runQueryWithFilters({ project_id: chart.project_id, chart_id: chart.id, filters: newConditions }))
+      .then((data) => {
+        if (data.payload) {
+          setChart(data.payload);
+        }
+
+        setDataLoading(false);
+      })
+      .catch(() => {
+        setDataLoading(false);
+      });
+  };
+
   const _getUpdatedTime = (chart) => {
     const updatedAt = chart.chartDataUpdated || chart.lastAutoUpdate;
     if (moment().diff(moment(updatedAt), "days") > 1) {
@@ -95,7 +151,7 @@ function EmbeddedChart() {
     return moment(updatedAt).fromNow();
   };
 
-  const _onAddFilter = (condition) => {
+  const _onAddFilter = async (condition) => {
     let found = false;
     const newConditions = conditions.map((c) => {
       let newCondition = c;
@@ -109,7 +165,7 @@ function EmbeddedChart() {
     setConditions(newConditions);
 
     setDataLoading(true);
-    dispatch(runQueryWithFilters({ project_id: chart.project_id, chart_id: chart.id, filters: newConditions }))
+    await dispatch(runQueryWithFilters({ project_id: chart.project_id, chart_id: chart.id, filters: newConditions }))
       .then((data) => {
         if (data.payload) {
           setChart(data.payload);
@@ -229,64 +285,57 @@ function EmbeddedChart() {
       </Helmet>
       <div className="pl-unit-sm w-full" style={styles.header(chart.type)}>
         <Row justify="space-between">
-          <div style={{ display: "flex", alignItems: "center" }}>
+          <div>
             <Text b>{chart.name}</Text>
-            <Spacer x={0.5} />
-            {chart.ChartDatasetConfigs && conditions.map((c) => {
-              return (
-                <Chip
-                  color="primary"
-                  variant={"flat"}
-                  key={c.id}
-                  size="sm"
-                  className={"py-0 px-5"}
-                  endContent={(
-                    <Link onClick={() => _onClearFilter(c)} css={{ color: "$text" }}>
-                      <LuXCircle />
-                    </Link>
-                  )}
-                >
-                  {c.type !== "date" && `${c.value}`}
-                  {c.type === "date" && format(new Date(c.value), "Pp", { locale: enGB })}
-                </Chip>
-              );
-            })}
+            <div className="flex flex-row items-center">
+              {!dataLoading && (
+                <>
+                  <span className="text-[10px] text-default-500" title="Last updated">{`${_getUpdatedTime(chart)}`}</span>
+                </>
+              )}
+              {dataLoading && (
+                <>
+                  <CircularProgress classNames={{ svg: "w-4 h-4" }} />
+                  <Spacer x={1} />
+                  <span className="text-[10px] text-default-500">{"Updating..."}</span>
+                </>
+              )}
+            </div>
           </div>
 
           {chart.chartData && (
             <div>
               {_checkIfFilters() && (
-                <Popover>
-                  <PopoverTrigger>
-                    <Link className="text-gray-500">
-                      <LuListFilter />
-                    </Link>
-                  </PopoverTrigger>
-                  <PopoverContent>
+                <div className="flex items-start gap-1">
+                  {chartSize?.[2] > 3 && (
                     <ChartFilters
                       chart={chart}
                       onAddFilter={_onAddFilter}
                       onClearFilter={_onClearFilter}
                       conditions={conditions}
+                      inline
+                      size="sm"
+                      amount={1}
                     />
-                  </PopoverContent>
-                </Popover>
+                  )}
+                  <Popover>
+                    <PopoverTrigger>
+                      <Link className="text-gray-500">
+                        <LuListFilter />
+                      </Link>
+                    </PopoverTrigger>
+                    <PopoverContent className="pt-2">
+                      <ChartFilters
+                        chart={chart}
+                        onAddFilter={_onAddFilter}
+                        onClearFilter={_onClearFilter}
+                        conditions={conditions}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               )}
             </div>
-          )}
-        </Row>
-        <Row justify="flex-start" align="center" className={"gap-1"}>
-          {!dataLoading && (
-            <>
-              <span className="text-[10px] text-default-500" title="Last updated">{`${_getUpdatedTime(chart)}`}</span>
-            </>
-          )}
-          {dataLoading && (
-            <>
-              <CircularProgress classNames={{ svg: "w-4 h-4" }} />
-              <Spacer x={1} />
-              <span className="text-[10px] text-default-500">{"Updating..."}</span>
-            </>
           )}
         </Row>
       </div>

@@ -104,7 +104,7 @@ function TeamMembers(props) {
   };
 
   const _onChangeProjectAccess = (projectId) => {
-    const newAccess = projectAccess[changedMember.id].projects || [];
+    const newAccess = [...projectAccess[changedMember.id].projects] || [];
     const isFound = _.indexOf(projectAccess[changedMember.id].projects, projectId);
 
     if (isFound === -1) {
@@ -119,6 +119,9 @@ function TeamMembers(props) {
       team_id: team.id
     }))
       .then(() => {
+        const newProjectAccess = _.cloneDeep(projectAccess);
+        newProjectAccess[changedMember.id].projects = newAccess;
+        setProjectAccess(newProjectAccess);
         toast.success("Updated the user access 👨‍🎓");
       })
       .catch(() => {
@@ -303,7 +306,7 @@ function TeamMembers(props) {
                             </>
                           )}
                           {user.id !== member.id
-                            && (_canAccess("teamOwner") || (_canAccess("teamAdmin") && memberRole !== "teamOwner"))
+                            && (_canAccess("teamOwner") || (_canAccess("teamAdmin") && memberRole.role !== "teamOwner"))
                             && (
                               <Tooltip content="Remove user from the team">
                                 <Button

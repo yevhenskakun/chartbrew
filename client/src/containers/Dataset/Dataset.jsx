@@ -134,7 +134,7 @@ function Dataset() {
   }, [ghostProject, dataset]);
 
   useEffect(() => {
-    if (datasetMenu === "configure" && !datasetResponse) {
+    if (datasetMenu === "configure" && !datasetResponse && dataset?.id) {
       dispatch(runRequest({
         team_id: params.teamId,
         dataset_id: dataset.id,
@@ -161,6 +161,9 @@ function Dataset() {
       }
       if (!query.has("create") && query.has("chart_id") && query.has("project_id")) {
         setFromChart("edit");
+      }
+      if (query.has("editFilters")) {
+        setDatasetMenu("configure");
       }
     }
   }, [query]);

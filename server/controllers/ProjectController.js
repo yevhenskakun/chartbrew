@@ -29,7 +29,12 @@ class ProjectController {
           model: db.Chart,
           include: [{
             model: db.ChartDatasetConfig, include: [{ model: db.Dataset }]
-          }]
+          }, {
+            model: db.Chartshare,
+          }],
+        },
+        {
+          model: db.Variable,
         }
       ],
     })
@@ -49,6 +54,7 @@ class ProjectController {
       where: {
         user_id: userId
       },
+      include: [{ model: db.Variable }],
     })
       .then((roles) => {
         const idArray = [];
@@ -174,7 +180,7 @@ class ProjectController {
   getTeamProjects(teamId) {
     return db.Project.findAll({
       where: { team_id: teamId },
-      include: [{ model: db.Chart, attributes: ["id", "layout"] }],
+      include: [{ model: db.Chart, attributes: ["id", "layout"] }, { model: db.Variable }],
     })
       .then((projects) => {
         return projects;
@@ -192,7 +198,11 @@ class ProjectController {
           model: db.Chart,
           attributes: { exclude: ["query"] },
           where: { onReport: true },
-          include: [{ model: db.ChartDatasetConfig, order: [["order", "ASC"]] }],
+          include: [{
+            model: db.ChartDatasetConfig,
+            order: [["order", "ASC"]],
+            include: [{ model: db.Dataset, attributes: ["id", "conditions"] }],
+          }],
         },
         {
           model: db.Team,
@@ -219,6 +229,48 @@ class ProjectController {
       })
       .catch((err) => {
         return Promise.reject(err);
+      });
+  }
+
+  getVariables(projectId) {
+    return db.Variable.findAll({
+      where: { project_id: projectId },
+    })
+      .then((variables) => {
+        return variables;
+      })
+      .catch((error) => {
+        return Promise.reject(error);
+      });
+  }
+
+  createVariable(projectId, data) {
+    return db.Variable.create({ project_id: projectId, ...data })
+      .then((variable) => {
+        return variable;
+      })
+      .catch((error) => {
+        return Promise.reject(error);
+      });
+  }
+
+  updateVariable(variableId, data) {
+    return db.Variable.update(data, { where: { id: variableId } })
+      .then(() => {
+        return this.findById(variableId);
+      })
+      .catch((error) => {
+        return Promise.reject(error);
+      });
+  }
+
+  deleteVariable(variableId) {
+    return db.Variable.destroy({ where: { id: variableId } })
+      .then(() => {
+        return { removed: true };
+      })
+      .catch((error) => {
+        return Promise.reject(error);
       });
   }
 }

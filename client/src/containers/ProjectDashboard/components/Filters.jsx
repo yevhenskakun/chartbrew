@@ -3,23 +3,27 @@ import PropTypes from "prop-types";
 import moment from "moment";
 import _ from "lodash";
 import { v4 as uuid } from "uuid";
-import { formatISO, format } from "date-fns";
-import { Calendar, DateRange } from "react-date-range";
-import { enGB } from "date-fns/locale";
 import {
-  Dropdown, Spacer, Link as LinkNext, Input, Popover,
-  Tooltip, Button, Modal, Chip, Divider, ModalHeader, ModalBody, ModalFooter, Tabs, Tab, PopoverTrigger, PopoverContent, DropdownTrigger, DropdownMenu, DropdownItem, ModalContent, Select, SelectItem,
+  Dropdown, Spacer, Link as LinkNext, Input, Tooltip, Button, Modal, Chip,
+  Divider, ModalHeader, ModalBody, ModalFooter, Tabs, Tab, DropdownTrigger,
+  DropdownMenu, DropdownItem, ModalContent, Select, SelectItem, DateRangePicker,
+  Code, DatePicker,
+  Autocomplete,
+  AutocompleteItem,
 } from "@nextui-org/react";
-import { LuCalendarDays, LuInfo, LuPlus } from "react-icons/lu";
+import { LuCheckSquare, LuInfo, LuPlus, LuX } from "react-icons/lu";
 
 import { operators } from "../../../modules/filterOperations";
-import { primary, secondary } from "../../../config/colors";
 import Text from "../../../components/Text";
 import Row from "../../../components/Row";
+import { parseDate, parseDateTime, today } from "@internationalized/date";
+import { useSelector } from "react-redux";
+import { selectProject } from "../../../slices/project";
+import { Link } from "react-router-dom";
 
 function Filters(props) {
   const {
-    charts, projectId, onAddFilter, open, onClose, filterGroups, onEditFilterGroup,
+    charts, projectId, onAddFilter, open, onClose, filterGroups, onEditFilterGroup, onAddVariableFilter,
   } = props;
 
   const [fieldOptions, setFieldOptions] = useState([]);
@@ -36,7 +40,26 @@ function Filters(props) {
     endDate: moment().endOf("month").toISOString(),
     key: "selection",
   });
+  const [initNewSelectionRange] = useState({
+    start: parseDate(moment().startOf("month").format("YYYY-MM-DD")),
+    end: parseDate(moment().endOf("month").format("YYYY-MM-DD")),
+  });
   const [dateRange, setDateRange] = useState(initSelectionRange);
+  const [newDateRange, setNewDateRange] = useState(initNewSelectionRange);
+  const [variableCondition, setVariableCondition] = useState({
+    variable: "", value: ""
+  });
+
+  const project = useSelector(selectProject);
+
+  useEffect(() => {
+    if (dateRange.startDate && dateRange.endDate) {
+      setNewDateRange({
+        start: parseDateTime(moment(dateRange.startDate).format("YYYY-MM-DDTHH:mm:ss")),
+        end: parseDateTime(moment(dateRange.endDate).format("YYYY-MM-DDTHH:mm:ss")),
+      });
+    }
+  }, [dateRange]);
 
   useEffect(() => {
     if (charts) {
@@ -197,14 +220,6 @@ function Filters(props) {
     }
   };
 
-  const _onChangeDateRange = (ranges) => {
-    const range = ranges.selection;
-    setDateRange({
-      startDate: moment(range.startDate).toISOString(),
-      endDate: moment(range.endDate).toISOString(),
-    });
-  };
-
   const _onApplyFilter = () => {
     if (filterType === "date") {
       onAddFilter({
@@ -216,6 +231,10 @@ function Filters(props) {
     } else {
       _onAddFilter();
     }
+  };
+
+  const _onAddVariableFilter = () => {
+    onAddVariableFilter(variableCondition);
   };
 
   return (
@@ -231,153 +250,171 @@ function Filters(props) {
               onSelectionChange={(selection) => setFilterType(selection)}
             >
               <Tab key="date" title="Date" />
-              <Tab key="custom" title="Custom" />
+              <Tab key="variables" title="Variables" />
+              <Tab key="field" title="Matching field" />
             </Tabs>
           </Row>
-          <Spacer y={1} />
+
           <Divider />
-          <Spacer y={1} />
 
           {filterType === "date" && (
             <>
               <Row>
-                <Text>
+                <span>
                   {"The dashboard date filter will overwrite the global date settings in the selected charts as well as the "}
-                  <code>{"{{start_date}}"}</code>
+                  <Code size="sm">{"{{start_date}}"}</Code>
                   {" and "}
-                  <code>{"{{end_date}}"}</code>
+                  <Code size="sm">{"{{end_date}}"}</Code>
                   {" variables in the queries."}
-                </Text>
+                </span>
               </Row>
               <Row wrap="wrap" className={"gap-1"}>
                 <LinkNext onPress={() => _onSelectRange("this_month")}>
-                  <Chip color="primary" size="sm" variant={"bordered"}>
+                  <Chip color="primary" size="sm" variant={"bordered"} className="cursor-pointer">
                     This month
                   </Chip>
                 </LinkNext>
 
                 <LinkNext onPress={() => _onSelectRange("last_month")}>
-                  <Chip color="primary" size="sm" variant={"bordered"}>
+                  <Chip color="primary" size="sm" variant={"bordered"} className="cursor-pointer">
                     Last month
                   </Chip>
                 </LinkNext>
                 
                 <LinkNext onPress={() => _onSelectRange("last_7_days")}>
-                  <Chip color="primary" size="sm" variant={"bordered"}>
+                  <Chip color="primary" size="sm" variant={"bordered"} className="cursor-pointer">
                     Last 7 days
                   </Chip>
                 </LinkNext>
                 
                 <LinkNext onPress={() => _onSelectRange("last_30_days")}>
-                  <Chip color="primary" size="sm" variant={"bordered"}>
+                  <Chip color="primary" size="sm" variant={"bordered"} className="cursor-pointer">
                     Last 30 days
                   </Chip>
                 </LinkNext>
                 
                 <LinkNext onPress={() => _onSelectRange("last_90_days")}>
-                  <Chip color="primary" size="sm" variant={"bordered"}>
+                  <Chip color="primary" size="sm" variant={"bordered"} className="cursor-pointer">
                     Last 90 days
                   </Chip>
                 </LinkNext>
                 
                 <LinkNext onPress={() => _onSelectRange("last_year")}>
-                  <Chip color="primary" size="sm" variant={"bordered"}>
+                  <Chip color="primary" size="sm" variant={"bordered"} className="cursor-pointer">
                     Last year
                   </Chip>
                 </LinkNext>
                 
                 <LinkNext onPress={() => _onSelectRange("quarter_to_date")}>
-                  <Chip color="primary" size="sm" variant={"bordered"}>
+                  <Chip color="primary" size="sm" variant={"bordered"} className="cursor-pointer">
                     Quarter to date
                   </Chip>
                 </LinkNext>
                 
                 <LinkNext onPress={() => _onSelectRange("last_quarter")}>
-                  <Chip color="primary" size="sm" variant={"bordered"}>
+                  <Chip color="primary" size="sm" variant={"bordered"} className="cursor-pointer">
                     Last quarter
                   </Chip>
                 </LinkNext>
                 
                 <LinkNext onPress={() => _onSelectRange("year_to_date")}>
-                  <Chip color="primary" size="sm" variant={"bordered"}>
+                  <Chip color="primary" size="sm" variant={"bordered"} className="cursor-pointer">
                     Year to date
                   </Chip>
                 </LinkNext>
               </Row>
-              <Spacer y={2} />
-              <Row align="center">
-                <Popover className={"z-[99999]"}>
-                  <PopoverTrigger>
-                    <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-                      <Input
-                        placeholder="Start date"
-                        label="Start date"
-                        value={dateRange.startDate && moment(dateRange.startDate).format("Do MMM YYYY")}
-                        readOnly
-                        variant="bordered"
-                      />
-                      <Spacer x={1} />
-                      <Input
-                        placeholder="End date"
-                        label="End date"
-                        value={dateRange.endDate && moment(dateRange.endDate).format("Do MMM YYYY")}
-                        readOnly
-                        variant="bordered"
-                      />
-                    </div>
-                  </PopoverTrigger>
-                  <PopoverContent>
-                    <DateRange
-                      direction="horizontal"
-                      rangeColors={[secondary, primary]}
-                      ranges={[
-                        dateRange.startDate && dateRange.endDate ? {
-                          startDate: new Date(dateRange.startDate),
-                          endDate: new Date(dateRange.endDate),
-                          key: "selection",
-                        } : initSelectionRange
-                      ]}
-                      onChange={_onChangeDateRange}
-                      months={2}
-                      showPreview={false}
-                      showDateDisplay={false}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </Row>
-              <Spacer y={2} />
+              <div>
+                <DateRangePicker
+                  variant="bordered"
+                  label="Select a date range"
+                  labelPlacement="inside"
+                  visibleMonths={2}
+                  value={newDateRange}
+                  onChange={(value) => setNewDateRange(value)}
+                  color="primary"
+                />
+              </div>
               <Row>
                 <Text>
                   Select the charts that will be affected by the date filter
                 </Text>
               </Row>
-              <Row wrap="wrap" className={"gap-1"}>
+              <div className={"flex flex-row flex-wrap gap-1"}>
+                <Button
+                  variant="light"
+                  startContent={<LuCheckSquare />}
+                  size="sm"
+                  onClick={() => onEditFilterGroup(null, true)}
+                >
+                  Select all
+                </Button>
+                <Button
+                  variant="light"
+                  startContent={<LuX />}
+                  size="sm"
+                  onClick={() => onEditFilterGroup(null, false, true)}
+                >
+                  Deselect all
+                </Button>
+              </div>
+              <div className={"flex flex-row flex-wrap gap-1"}>
                 {charts.map((chart) => (
                   <Fragment key={chart.id}>
                     <LinkNext onPress={() => onEditFilterGroup(chart.id)}>
                       <Chip
                         className="cursor-pointer"
-                        color="primary"
+                        color={filterGroups.find(c => c === chart.id) ? "primary" : "default"}
                         radius="sm"
-                        variant={filterGroups.find(c => c === chart.id) ? "solid" : "bordered"}
+                        variant={filterGroups.find(c => c === chart.id) ? "solid" : "flat"}
                       >
                         {chart.name}
                       </Chip>
                     </LinkNext>
-                    <Spacer x={0.6} />
                   </Fragment>
                 ))}
-              </Row>
+              </div>
             </>
           )}
 
-          {filterType === "custom" && (
+          {filterType === "variables" && (
+            <>
+              <div className="flex flex-row gap-2 items-center">
+                <Autocomplete
+                  label="Select a variable"
+                  variant="bordered"
+                  selectedKey={variableCondition.variable}
+                  onSelectionChange={(key) => setVariableCondition({ ...variableCondition, variable: key })}
+                >
+                  {project?.Variables?.map((variable) => (
+                    <AutocompleteItem key={variable.name} textValue={variable.name}>
+                      {variable.name}
+                    </AutocompleteItem>
+                  ))}
+                </Autocomplete>
+                
+                <Input
+                  label="Enter a value"
+                  variant="bordered"
+                  value={variableCondition.value}
+                  onChange={(e) => setVariableCondition({ ...variableCondition, value: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <Link to="../variables" className="text-primary-400">
+                  Missing a variable? Click here to create new variables for this project.
+                </Link>
+              </div>
+            </>
+          )}
+
+          {filterType === "field" && (
             <>
               <Row align="center" className={"gap-2"}>
                 <Select
                   label="Select a field"
-                  renderValue={() => (
-                    <Text>{(filter.field && filter.field.substring(filter.field.lastIndexOf(".") + 1)) || "Select a field"}</Text>
+                  value={() => (
+                    <span>{(filter.field && filter.field.substring(filter.field.lastIndexOf(".") + 1)) || "Select a field"}</span>
                   )}
                   selectedKeys={[filter.field]}
                   selectionMode="single"
@@ -389,7 +426,7 @@ function Filters(props) {
                     <SelectItem
                       key={field.value}
                       startContent={(
-                        <Chip variant="flat" size="sm" color={field.label.color} className="min-w-[70px]">
+                        <Chip variant="flat" size="sm" color={field.label.color} className="min-w-[70px] text-center">
                           {field.type}
                         </Chip>
                       )}
@@ -427,33 +464,25 @@ function Filters(props) {
                   || (_.find(fieldOptions, { value: filter.field })
                     && _.find(fieldOptions, { value: filter.field }).type !== "date")) && (
                     <Input
-                      placeholder="Enter a value"
+                      label="Enter a value"
+                      labelPlacement="inside"
                       value={filter.value}
                       onChange={(e) => _updateFilter(e.target.value, "value")}
                       variant="bordered"
+                      size="sm"
                     />
                 )}
                 {_.find(fieldOptions, { value: filter.field })
                   && _.find(fieldOptions, { value: filter.field }).type === "date" && (
-                    <Popover placement="bottom">
-                      <PopoverTrigger>
-                        <Input
-                          placeholder="Click to open calendar"
-                          startContent={<LuCalendarDays />}
-                          value={(filter.value && format(new Date(filter.value), "Pp", { locale: enGB })) || ""}
-                          variant="bordered"
-                        />
-                      </PopoverTrigger>
-                      <PopoverContent>
-                        <Calendar
-                          date={(filter.value && new Date(filter.value)) || new Date()}
-                          onChange={(date) => _updateFilter(formatISO(date), "value")}
-                          locale={enGB}
-                          color={secondary}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                )}
+                    <DatePicker
+                      label="Select a date"
+                      value={(filter.value && parseDate(filter.value)) || today()}
+                      onChange={(date) => _updateFilter(date.toString(), "value")}
+                      variant="bordered"
+                      showMonthAndYearPickers
+                      calendarProps={{ color: "primary" }}
+                    />
+                  )}
                 <Spacer x={0.5} />
                 <Tooltip content={"If you can't see your fields, please go in each chart and re-run the queries. Chartbrew will then index the fields and then they will appear here."} css={{ zIndex: 99999 }}>
                   <LinkNext className="text-primary-400">
@@ -461,46 +490,52 @@ function Filters(props) {
                   </LinkNext>
                 </Tooltip>
               </Row>
-              <Spacer y={2} />
               {filter.field && (
                 <>
                   <Row align="center">
                     <Text b>The filter will affect the following charts:</Text>
                   </Row>
-                  <Spacer y={1} />
                   <Row wrap="wrap" className={"gap-1"}>
                     {_getChartsWithField(filter.field).map((chart) => (
                       <>
                         <Chip color="primary" key={chart.id} radius="sm" variant="flat">
                           {chart.name}
                         </Chip>
-                        <Spacer x={0.3} />
                       </>
                     ))}
                   </Row>
                 </>
               )}
-              <Spacer y={2} />
-              <Row>
-                <Button
-                  endContent={<LuPlus />}
-                  disabled={!filter.value}
-                  onClick={_onAddFilter}
-                  color="primary"
-                >
-                  Apply filter
-                </Button>
-              </Row>
             </>
           )}
         </ModalBody>
         <ModalFooter>
-          <Button auto onClick={onClose} color="warning" variant="flat">
+          <Button auto onClick={onClose} variant="bordered">
             Close
           </Button>
           {filterType === "date" && (
             <Button color="primary" onClick={_onApplyFilter}>
               Apply filter
+            </Button>
+          )}
+          {filterType === "field" && (
+            <Button
+              endContent={<LuPlus />}
+              isDisabled={!filter.value}
+              onClick={_onAddFilter}
+              color="primary"
+            >
+              Apply filter
+            </Button>
+          )}
+          {filterType === "variables" && (
+            <Button
+              endContent={<LuPlus />}
+              isDisabled={!variableCondition.variable || !variableCondition.value}
+              onClick={_onAddVariableFilter}
+              color="primary"
+            >
+              Add variable filter
             </Button>
           )}
         </ModalFooter>
@@ -517,6 +552,7 @@ Filters.propTypes = {
   onClose: PropTypes.func.isRequired,
   filterGroups: PropTypes.array.isRequired,
   onEditFilterGroup: PropTypes.func.isRequired,
+  onAddVariableFilter: PropTypes.func.isRequired,
 };
 
 Filters.defaultProps = {
