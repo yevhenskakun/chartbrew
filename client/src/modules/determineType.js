@@ -1,7 +1,7 @@
 import moment from "moment";
 
 // regex to check if the string is made only of numbers
-const checkNumbersOnly = /^\d+$/;
+const checkNumbersOnly = /^\d+(\.\d+)?$/;
 // regex to check if numbers only and if length is 10 or 13
 const checkNumbersOnlyAndLength = /^\d{10,13}$/;
 
@@ -9,7 +9,7 @@ const dateFormats = [
   "YYYY-MM-DD", "MM-DD-YYYY", "DD-MM-YYYY", "YYYY/MM/DD", "MM/DD/YYYY", "DD/MM/YYYY",
   "YYYY-MM-DD HH:mm", "MM-DD-YYYY HH:mm", "DD-MM-YYYY HH:mm", "YYYY/MM/DD HH:mm", "MM/DD/YYYY HH:mm", "DD/MM/YYYY HH:mm",
   "YYYY-MM-DD HH:mm:ss", "MM-DD-YYYY HH:mm:ss", "DD-MM-YYYY HH:mm:ss", "YYYY/MM/DD HH:mm:ss", "MM/DD/YYYY HH:mm:ss", "DD/MM/YYYY HH:mm:ss",
-  "YYYY-MM-DDTHH:mm:ssZ", "YYYY-MM-DDTHH:mm:ss.SSSZ", // ISO 8601
+  "YYYY-MM-DDTHH:mm:ssZ", "YYYY-MM-DDTHH:mm:ss.SSSZ", moment.ISO_8601, // ISO 8601
   "YYYY-MM-DDTHH:mm:ss.SSS[Z]", "YYYY-MM-DDTHH:mm:ss.SSSZ", // ISO 8601 with milliseconds
   "ddd MMM DD YYYY HH:mm:ss [GMT]ZZ (zz)",
 ];
